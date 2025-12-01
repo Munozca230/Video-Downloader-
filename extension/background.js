@@ -319,6 +319,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+
+  // Descarga manual con URLs proporcionadas
+  if (message.type === 'MANUAL_DOWNLOAD') {
+    (async () => {
+      try {
+        const config = await getConfig();
+        const timestamp = Date.now();
+        const sessionId = Math.random().toString(36).substring(2, 8);
+
+        const videoFilename = `video_${timestamp}_${sessionId}.mp4`;
+        const audioFilename = `audio_${timestamp}_${sessionId}.mp4`;
+
+        await downloadFile(message.videoUrl, videoFilename, config.downloadPath);
+        await downloadFile(message.audioUrl, audioFilename, config.downloadPath);
+
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
 });
 
 console.log('Drive Video Downloader - Background Service Worker iniciado');

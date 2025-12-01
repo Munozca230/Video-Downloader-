@@ -77,6 +77,37 @@
         <p class="note">El programa merger combinara automaticamente los archivos descargados.</p>
       </section>
 
+      <!-- Modo Manual -->
+      <section class="manual-section">
+        <button id="manualToggle" class="btn btn-text">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+          </svg>
+          <span>Modo Manual (pegar URLs)</span>
+        </button>
+
+        <div class="manual-panel" id="manualPanel" style="display: none;">
+          <p class="manual-hint">Abre DevTools (F12) > Network > busca "videoplayback" > clic derecho > Copy URL</p>
+
+          <div class="manual-item">
+            <label for="manualVideoUrl">URL de Video (mime=video):</label>
+            <textarea id="manualVideoUrl" rows="2" placeholder="Pega aqui la URL del video..."></textarea>
+          </div>
+
+          <div class="manual-item">
+            <label for="manualAudioUrl">URL de Audio (mime=audio):</label>
+            <textarea id="manualAudioUrl" rows="2" placeholder="Pega aqui la URL del audio..."></textarea>
+          </div>
+
+          <button id="manualDownloadBtn" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            <span>Descargar con URLs manuales</span>
+          </button>
+        </div>
+      </section>
+
       <!-- Configuracion -->
       <section class="config-section">
         <button id="configToggle" class="btn btn-text">

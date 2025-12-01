@@ -14,6 +14,11 @@ const configToggle = document.getElementById('configToggle');
 const configPanel = document.getElementById('configPanel');
 const downloadPath = document.getElementById('downloadPath');
 const saveConfigBtn = document.getElementById('saveConfig');
+const manualToggle = document.getElementById('manualToggle');
+const manualPanel = document.getElementById('manualPanel');
+const manualVideoUrl = document.getElementById('manualVideoUrl');
+const manualAudioUrl = document.getElementById('manualAudioUrl');
+const manualDownloadBtn = document.getElementById('manualDownloadBtn');
 
 let currentTabId = null;
 
@@ -194,11 +199,80 @@ function toggleConfig() {
   }
 }
 
+// Toggle panel manual
+function toggleManual() {
+  if (manualPanel.style.display === 'none') {
+    manualPanel.style.display = 'block';
+  } else {
+    manualPanel.style.display = 'none';
+  }
+}
+
+// Limpiar URL (remover range y parametros relacionados)
+function cleanUrl(url) {
+  let clean = url.trim();
+  clean = clean.replace(/&range=[^&]*/g, '');
+  clean = clean.replace(/&rn=[^&]*/g, '');
+  clean = clean.replace(/&rbuf=[^&]*/g, '');
+  return clean;
+}
+
+// Descargar con URLs manuales
+async function manualDownload() {
+  const videoUrl = manualVideoUrl.value.trim();
+  const audioUrl = manualAudioUrl.value.trim();
+
+  if (!videoUrl) {
+    showMessage('Falta la URL del video', 'error');
+    return;
+  }
+
+  if (!audioUrl) {
+    showMessage('Falta la URL del audio', 'error');
+    return;
+  }
+
+  if (!videoUrl.includes('videoplayback')) {
+    showMessage('La URL del video no parece valida', 'error');
+    return;
+  }
+
+  if (!audioUrl.includes('videoplayback')) {
+    showMessage('La URL del audio no parece valida', 'error');
+    return;
+  }
+
+  manualDownloadBtn.disabled = true;
+  showMessage('Iniciando descarga manual...', 'loading');
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'MANUAL_DOWNLOAD',
+      videoUrl: cleanUrl(videoUrl),
+      audioUrl: cleanUrl(audioUrl)
+    });
+
+    if (response.success) {
+      showMessage('Descarga iniciada! Los archivos se combinaran automaticamente.', 'success');
+      manualVideoUrl.value = '';
+      manualAudioUrl.value = '';
+    } else {
+      showMessage('Error: ' + response.error, 'error');
+    }
+  } catch (error) {
+    showMessage('Error al descargar: ' + error.message, 'error');
+  }
+
+  manualDownloadBtn.disabled = false;
+}
+
 // Event listeners
 downloadBtn.addEventListener('click', download);
 clearBtn.addEventListener('click', clearData);
 configToggle.addEventListener('click', toggleConfig);
 saveConfigBtn.addEventListener('click', saveConfig);
+manualToggle.addEventListener('click', toggleManual);
+manualDownloadBtn.addEventListener('click', manualDownload);
 
 // Inicializar
 init();

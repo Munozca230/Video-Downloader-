@@ -21,7 +21,14 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://drive.google.com/*"],
+      "matches": [
+        "*://drive.google.com/*",
+        "*://*.drive.google.com/*",
+        "*://docs.google.com/*",
+        "*://*.docs.google.com/*",
+        "*://*.googlevideo.com/*",
+        "*://*.c.drive.google.com/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
@@ -30,7 +37,14 @@
   "web_accessible_resources": [
     {
       "resources": ["injected.js"],
-      "matches": ["*://drive.google.com/*"]
+      "matches": [
+        "*://drive.google.com/*",
+        "*://*.drive.google.com/*",
+        "*://docs.google.com/*",
+        "*://*.docs.google.com/*",
+        "*://*.googlevideo.com/*",
+        "*://*.c.drive.google.com/*"
+      ]
     }
   ],
   "action": {

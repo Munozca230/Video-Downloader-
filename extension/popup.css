@@ -251,6 +251,60 @@ header .subtitle {
   font-style: italic;
 }
 
+/* Manual Mode */
+.manual-section {
+  border-top: 1px solid #333;
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+
+.manual-panel {
+  margin-top: 12px;
+  padding: 12px;
+  background: #16213e;
+  border-radius: 8px;
+}
+
+.manual-hint {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.manual-item {
+  margin-bottom: 12px;
+}
+
+.manual-item label {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.manual-item textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #fff;
+  font-size: 11px;
+  font-family: monospace;
+  resize: vertical;
+}
+
+.manual-item textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.manual-panel .btn-primary {
+  width: 100%;
+  margin-top: 8px;
+}
+
 /* Config */
 .config-section {
   border-top: 1px solid #333;
