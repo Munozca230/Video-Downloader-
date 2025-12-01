@@ -191,6 +191,26 @@ class HARProcessor:
         return int(match.group(1)) if match else 0
 
     @classmethod
+    def extract_cookies_from_har(cls, har_data):
+        """Extraer cookies de las entradas del HAR"""
+        cookies = {}
+        entries = har_data.get('log', {}).get('entries', [])
+
+        for entry in entries:
+            # Buscar cookies en requests a google.com
+            request = entry.get('request', {})
+            url = request.get('url', '')
+
+            if 'google.com' in url or 'googlevideo.com' in url:
+                for cookie in request.get('cookies', []):
+                    name = cookie.get('name', '')
+                    value = cookie.get('value', '')
+                    if name and value:
+                        cookies[name] = value
+
+        return cookies
+
+    @classmethod
     def process_har(cls, har_path):
         """Procesar archivo HAR y extraer las mejores URLs de video y audio"""
         logger.info(f"Procesando HAR: {har_path}")
@@ -200,7 +220,11 @@ class HARProcessor:
                 har_data = json.load(f)
         except Exception as e:
             logger.error(f"Error leyendo HAR: {e}")
-            return None, None
+            return None, None, None
+
+        # Extraer cookies para autenticación
+        cookies = cls.extract_cookies_from_har(har_data)
+        logger.info(f"Cookies extraídas: {len(cookies)}")
 
         entries = har_data.get('log', {}).get('entries', [])
 
@@ -262,7 +286,7 @@ class HARProcessor:
         if best_audio:
             logger.info(f"Audio seleccionado: itag={best_audio['itag']}, size={best_audio['clen']//1024//1024}MB, redirect={best_audio['has_redirect']}")
 
-        return best_video, best_audio
+        return best_video, best_audio, cookies
 
     @classmethod
     def _select_best_url(cls, urls):
@@ -292,7 +316,7 @@ class VideoMerger:
         os.makedirs(config.watch_folder, exist_ok=True)
         os.makedirs(config.output_folder, exist_ok=True)
 
-    def download_url(self, url, output_path, description="archivo"):
+    def download_url(self, url, output_path, description="archivo", cookies=None):
         """Descargar un archivo desde URL"""
         if not REQUESTS_AVAILABLE:
             logger.error("requests no disponible, no se puede descargar")
@@ -300,8 +324,17 @@ class VideoMerger:
 
         logger.info(f"Descargando {description}...")
 
+        # Headers para simular navegador
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://drive.google.com/',
+            'Origin': 'https://drive.google.com',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
         try:
-            response = requests.get(url, stream=True, timeout=300)
+            response = requests.get(url, stream=True, timeout=300, headers=headers, cookies=cookies)
             response.raise_for_status()
 
             total_size = int(response.headers.get('content-length', 0))
@@ -332,7 +365,7 @@ class VideoMerger:
         logger.info(f"Archivo HAR detectado: {os.path.basename(har_path)}")
 
         # Extraer URLs del HAR
-        best_video, best_audio = HARProcessor.process_har(har_path)
+        best_video, best_audio, cookies = HARProcessor.process_har(har_path)
 
         if not best_video:
             logger.error("No se encontro URL de video valida en el HAR")
@@ -356,9 +389,9 @@ class VideoMerger:
         video_path = os.path.join(self.config.watch_folder, video_filename)
         audio_path = os.path.join(self.config.watch_folder, audio_filename)
 
-        # Descargar video y audio
-        video_ok = self.download_url(video_url, video_path, "video")
-        audio_ok = self.download_url(audio_url, audio_path, "audio")
+        # Descargar video y audio con cookies de autenticación
+        video_ok = self.download_url(video_url, video_path, "video", cookies=cookies)
+        audio_ok = self.download_url(audio_url, audio_path, "audio", cookies=cookies)
 
         if not video_ok or not audio_ok:
             logger.error("Error en la descarga, abortando")
