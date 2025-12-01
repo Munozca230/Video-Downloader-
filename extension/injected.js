@@ -10,6 +10,9 @@
     audio: null
   };
 
+  // Set para evitar procesar URLs duplicadas
+  const processedUrls = new Set();
+
   // Funcion para detectar tipo de media
   function detectMediaType(url) {
     const urlLower = url.toLowerCase();
@@ -65,8 +68,14 @@
   function sendDetectedUrl(url) {
     if (!url.includes('videoplayback')) return;
 
+    // Crear una key unica basada en el tipo de media (no la URL completa que cambia con range)
     const mediaType = detectMediaType(url);
     if (mediaType === 'unknown') return;
+
+    // Evitar procesar la misma URL base multiples veces
+    const urlKey = mediaType + '_' + url.split('&range=')[0].substring(0, 200);
+    if (processedUrls.has(urlKey)) return;
+    processedUrls.add(urlKey);
 
     const cleanedUrl = cleanUrl(url);
     const quality = getQuality(url);
@@ -140,6 +149,31 @@
 
     return element;
   };
+
+  // PerformanceObserver para detectar recursos cargados (funciona incluso con Service Workers)
+  try {
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.name && entry.name.includes('videoplayback')) {
+          sendDetectedUrl(entry.name);
+        }
+      }
+    });
+    observer.observe({ entryTypes: ['resource'] });
+    console.log('[Drive Downloader] PerformanceObserver activado');
+  } catch (e) {
+    console.log('[Drive Downloader] PerformanceObserver no disponible');
+  }
+
+  // Tambien revisar recursos ya cargados
+  if (performance && performance.getEntriesByType) {
+    const resources = performance.getEntriesByType('resource');
+    for (const entry of resources) {
+      if (entry.name && entry.name.includes('videoplayback')) {
+        sendDetectedUrl(entry.name);
+      }
+    }
+  }
 
   console.log('[Drive Downloader] Interceptor de URLs activado');
 })();
