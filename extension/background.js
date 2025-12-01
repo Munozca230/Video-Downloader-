@@ -4,6 +4,9 @@
 // Almacenamiento de URLs detectadas por pestaña
 const detectedUrls = new Map();
 
+// Tabs con debugger activo
+const debuggerTabs = new Set();
+
 // Listener global para eventos del debugger
 chrome.debugger.onEvent.addListener((source, method, params) => {
   if (method !== 'Network.requestWillBeSent' && method !== 'Network.responseReceived') return;
@@ -53,7 +56,15 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 
 // Limpiar debugger cuando se cierra el tab
 chrome.tabs.onRemoved.addListener((tabId) => {
+  debuggerTabs.delete(tabId);
+  detectedUrls.delete(tabId);
   chrome.debugger.detach({ tabId }).catch(() => {});
+});
+
+// Limpiar cuando el debugger se desconecta
+chrome.debugger.onDetach.addListener((source) => {
+  debuggerTabs.delete(source.tabId);
+  console.log('[Debugger] Desconectado del tab', source.tabId);
 });
 
 // Configuración por defecto
@@ -372,28 +383,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Iniciar monitoreo con debugger (no recarga la página)
+  // Verificar si el debugger está activo
+  if (message.type === 'CHECK_DEBUGGER') {
+    const tabId = message.tabId;
+    sendResponse({
+      success: true,
+      active: debuggerTabs.has(tabId)
+    });
+    return true;
+  }
+
+  // Iniciar monitoreo con debugger
   if (message.type === 'START_DEBUGGER') {
     const tabId = message.tabId;
 
     (async () => {
       try {
-        // Verificar si ya está conectado
-        try {
-          await chrome.debugger.attach({ tabId }, '1.3');
-        } catch (e) {
-          if (!e.message.includes('Already attached')) {
-            throw e;
-          }
+        // Si ya está conectado, solo confirmar
+        if (debuggerTabs.has(tabId)) {
+          sendResponse({ success: true, message: 'Debugger ya estaba conectado.' });
+          return;
         }
 
-        // Enable Network domain
+        // Intentar conectar
+        await chrome.debugger.attach({ tabId }, '1.3');
         await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
 
+        debuggerTabs.add(tabId);
         console.log('[Debugger] Conectado al tab', tabId);
         sendResponse({ success: true, message: 'Debugger conectado. Reproduce el video.' });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        // Si ya está conectado por nosotros, OK
+        if (error.message.includes('Already attached')) {
+          debuggerTabs.add(tabId);
+          try {
+            await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
+          } catch (e) {}
+          sendResponse({ success: true, message: 'Debugger reconectado.' });
+        } else {
+          sendResponse({ success: false, error: error.message });
+        }
       }
     })();
 
@@ -404,12 +433,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'STOP_DEBUGGER') {
     const tabId = message.tabId;
     (async () => {
+      debuggerTabs.delete(tabId);
       try {
         await chrome.debugger.detach({ tabId });
-        sendResponse({ success: true });
-      } catch (e) {
-        sendResponse({ success: true }); // OK si ya estaba desconectado
-      }
+      } catch (e) {}
+      sendResponse({ success: true });
     })();
     return true;
   }

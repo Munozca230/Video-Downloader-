@@ -44,6 +44,19 @@ async function init() {
   // Cargar configuración
   await loadConfig();
 
+  // Verificar si el debugger ya está activo
+  try {
+    const debuggerStatus = await chrome.runtime.sendMessage({
+      type: 'CHECK_DEBUGGER',
+      tabId: currentTabId
+    });
+    if (debuggerStatus.active) {
+      debuggerActive = true;
+      scanBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg><span>Detener</span>';
+      scanBtn.classList.add('active');
+    }
+  } catch (e) {}
+
   // Obtener estado actual
   await updateStatus();
 
