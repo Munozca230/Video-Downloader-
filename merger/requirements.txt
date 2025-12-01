@@ -4,5 +4,8 @@
 # Monitoreo de archivos en tiempo real
 watchdog>=3.0.0
 
+# Descargas HTTP (para procesar archivos HAR)
+requests>=2.28.0
+
 # Notificaciones de Windows (opcional)
 win10toast>=0.9
