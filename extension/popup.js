@@ -181,25 +181,42 @@ async function manualDownload() {
   }
 
   manualDownloadBtn.disabled = true;
-  showMessage('Descargando...', 'loading');
+  showMessage('Iniciando descarga...', 'loading');
 
   try {
+    const cleanedVideoUrl = cleanUrl(videoUrl);
+    const cleanedAudioUrl = cleanUrl(audioUrl);
+
+    console.log('[Popup] Enviando URLs al background...');
+    console.log('[Popup] Video URL length:', cleanedVideoUrl.length);
+    console.log('[Popup] Audio URL length:', cleanedAudioUrl.length);
+
     const response = await chrome.runtime.sendMessage({
       type: 'MANUAL_DOWNLOAD',
-      videoUrl: cleanUrl(videoUrl),
-      audioUrl: cleanUrl(audioUrl)
+      videoUrl: cleanedVideoUrl,
+      audioUrl: cleanedAudioUrl
     });
 
-    if (response.success) {
+    console.log('[Popup] Respuesta:', response);
+
+    if (response && response.success) {
       showMessage('Descarga iniciada! El merger combinara los archivos.', 'success');
       manualVideoUrl.value = '';
       manualAudioUrl.value = '';
       validateUrls();
-    } else {
+    } else if (response && response.error) {
       showMessage('Error: ' + response.error, 'error');
+    } else {
+      showMessage('Error: Respuesta inesperada del servicio', 'error');
     }
   } catch (error) {
-    showMessage('Error: ' + error.message, 'error');
+    console.error('[Popup] Error:', error);
+    // Si el canal se cerro, la descarga puede haber iniciado igual
+    if (error.message && error.message.includes('message channel closed')) {
+      showMessage('Descarga posiblemente iniciada. Revisa tu carpeta de descargas.', 'info');
+    } else {
+      showMessage('Error: ' + error.message, 'error');
+    }
   }
 
   manualDownloadBtn.disabled = false;

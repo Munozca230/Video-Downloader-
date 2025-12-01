@@ -467,25 +467,77 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Descarga manual con URLs proporcionadas
   if (message.type === 'MANUAL_DOWNLOAD') {
-    (async () => {
-      try {
-        const config = await getConfig();
-        const timestamp = Date.now();
-        const sessionId = Math.random().toString(36).substring(2, 8);
-
-        const videoFilename = `video_${timestamp}_${sessionId}.mp4`;
-        const audioFilename = `audio_${timestamp}_${sessionId}.mp4`;
-
-        await downloadFile(message.videoUrl, videoFilename, config.downloadPath);
-        await downloadFile(message.audioUrl, audioFilename, config.downloadPath);
-
-        sendResponse({ success: true });
-      } catch (error) {
-        sendResponse({ success: false, error: error.message });
-      }
-    })();
+    handleManualDownload(message, sendResponse);
     return true;
   }
 });
+
+// Handler separado para descarga manual (evita problemas con service worker)
+async function handleManualDownload(message, sendResponse) {
+  try {
+    const config = await getConfig();
+    const timestamp = Date.now();
+    const sessionId = Math.random().toString(36).substring(2, 8);
+
+    const videoFilename = `video_${timestamp}_${sessionId}.mp4`;
+    const audioFilename = `audio_${timestamp}_${sessionId}.mp4`;
+
+    console.log('[Manual Download] Iniciando descarga de video...');
+    console.log('[Manual Download] URL:', message.videoUrl.substring(0, 100) + '...');
+
+    // Descargar video
+    const videoResult = await new Promise((resolve) => {
+      chrome.downloads.download({
+        url: message.videoUrl,
+        filename: `${config.downloadPath}/${videoFilename}`,
+        conflictAction: 'uniquify'
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error('[Manual Download] Error video:', chrome.runtime.lastError.message);
+          resolve({ error: chrome.runtime.lastError.message });
+        } else {
+          console.log('[Manual Download] Video iniciado, ID:', downloadId);
+          resolve({ downloadId });
+        }
+      });
+    });
+
+    if (videoResult.error) {
+      sendResponse({ success: false, error: 'Error descargando video: ' + videoResult.error });
+      return;
+    }
+
+    console.log('[Manual Download] Iniciando descarga de audio...');
+
+    // Descargar audio
+    const audioResult = await new Promise((resolve) => {
+      chrome.downloads.download({
+        url: message.audioUrl,
+        filename: `${config.downloadPath}/${audioFilename}`,
+        conflictAction: 'uniquify'
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error('[Manual Download] Error audio:', chrome.runtime.lastError.message);
+          resolve({ error: chrome.runtime.lastError.message });
+        } else {
+          console.log('[Manual Download] Audio iniciado, ID:', downloadId);
+          resolve({ downloadId });
+        }
+      });
+    });
+
+    if (audioResult.error) {
+      sendResponse({ success: false, error: 'Error descargando audio: ' + audioResult.error });
+      return;
+    }
+
+    console.log('[Manual Download] Ambas descargas iniciadas correctamente');
+    sendResponse({ success: true });
+
+  } catch (error) {
+    console.error('[Manual Download] Error general:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
 
 console.log('Drive Video Downloader - Background Service Worker iniciado');
