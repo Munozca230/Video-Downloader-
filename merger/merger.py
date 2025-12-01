@@ -155,15 +155,8 @@ class HARProcessor:
         if 'videoplayback' not in url:
             return False
 
-        # Rechazar solo URLs que claramente son peticiones parciales/chunked
-        # Estas tienen ump=1 Y srfvp=1 juntos (streaming chunks)
-        has_ump = 'ump=1' in url
-        has_srfvp = 'srfvp=1' in url
-
-        # Solo rechazar si tiene AMBOS parametros de streaming
-        if has_ump and has_srfvp:
-            return False
-
+        # Aceptar todas las URLs de videoplayback
+        # Los parametros de streaming (ump, srfvp, range) se limpian despues
         return True
 
     @staticmethod
