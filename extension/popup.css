@@ -149,6 +149,14 @@ header .subtitle {
   background: #0284c7;
 }
 
+.btn-scan.active {
+  background: #dc2626;
+}
+
+.btn-scan.active:hover {
+  background: #b91c1c;
+}
+
 .btn-primary {
   flex: 1;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

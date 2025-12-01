@@ -267,36 +267,50 @@ async function manualDownload() {
   manualDownloadBtn.disabled = false;
 }
 
-// Escanear URLs usando chrome.debugger (acceso a Network como DevTools)
-async function scanForUrls() {
-  scanBtn.disabled = true;
-  showMessage('Recargando pagina y escaneando... (espera 15s)', 'loading');
+// Estado del debugger
+let debuggerActive = false;
 
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'SCAN_WITH_DEBUGGER',
-      tabId: currentTabId
-    });
+// Iniciar/detener monitoreo con debugger
+async function toggleDebugger() {
+  if (debuggerActive) {
+    // Detener
+    try {
+      await chrome.runtime.sendMessage({ type: 'STOP_DEBUGGER', tabId: currentTabId });
+    } catch (e) {}
+    debuggerActive = false;
+    scanBtn.textContent = 'Iniciar Monitoreo';
+    scanBtn.classList.remove('active');
+    showMessage('Monitoreo detenido', 'info');
+  } else {
+    // Iniciar
+    scanBtn.disabled = true;
+    showMessage('Conectando...', 'loading');
 
-    if (response.success) {
-      if (response.video || response.audio) {
-        await updateStatus();
-        const found = [];
-        if (response.video) found.push('video');
-        if (response.audio) found.push('audio');
-        showMessage(`Encontrado: ${found.join(' y ')}!`, 'success');
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'START_DEBUGGER',
+        tabId: currentTabId
+      });
+
+      if (response.success) {
+        debuggerActive = true;
+        scanBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg><span>Detener</span>';
+        scanBtn.classList.add('active');
+        showMessage('Monitoreo activo! Reproduce el video ahora.', 'success');
       } else {
-        showMessage('No se encontraron URLs. Asegurate de que el video se reproduzca.', 'error');
+        showMessage('Error: ' + response.error, 'error');
       }
-    } else {
-      showMessage('Error: ' + response.error, 'error');
+    } catch (error) {
+      showMessage('Error: ' + error.message, 'error');
     }
-  } catch (error) {
-    console.error('Scan error:', error);
-    showMessage('Error: ' + error.message, 'error');
-  }
 
-  scanBtn.disabled = false;
+    scanBtn.disabled = false;
+  }
+}
+
+// Alias para compatibilidad
+async function scanForUrls() {
+  await toggleDebugger();
 }
 
 // Event listeners

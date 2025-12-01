@@ -4,6 +4,58 @@
 // Almacenamiento de URLs detectadas por pestaña
 const detectedUrls = new Map();
 
+// Listener global para eventos del debugger
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  if (method !== 'Network.requestWillBeSent' && method !== 'Network.responseReceived') return;
+
+  const url = params.request?.url || params.response?.url;
+  if (!url || !url.includes('videoplayback')) return;
+
+  const tabId = source.tabId;
+  console.log('[Debugger Event]', method, url.substring(0, 100));
+
+  const mediaType = detectMediaType(url);
+  if (mediaType === 'unknown') return;
+
+  const quality = getQualityFromItag(url);
+  const cleanedUrl = cleanVideoUrl(url);
+
+  const urlData = {
+    original: url,
+    clean: cleanedUrl,
+    quality: quality,
+    timestamp: Date.now()
+  };
+
+  // Guardar
+  if (!detectedUrls.has(tabId)) {
+    detectedUrls.set(tabId, { video: null, audio: null, timestamp: Date.now() });
+  }
+
+  const tabData = detectedUrls.get(tabId);
+  if (mediaType === 'video') {
+    tabData.video = urlData;
+    console.log('[Debugger] Video detectado:', quality);
+  } else if (mediaType === 'audio') {
+    tabData.audio = urlData;
+    console.log('[Debugger] Audio detectado:', quality);
+  }
+  tabData.timestamp = Date.now();
+  detectedUrls.set(tabId, tabData);
+
+  // Notificar al popup
+  chrome.runtime.sendMessage({
+    type: 'URL_DETECTED',
+    tabId: tabId,
+    data: tabData
+  }).catch(() => {});
+});
+
+// Limpiar debugger cuando se cierra el tab
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.debugger.detach({ tabId }).catch(() => {});
+});
+
 // Configuración por defecto
 const DEFAULT_CONFIG = {
   downloadPath: 'DriveVideos',
@@ -320,108 +372,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Escanear usando chrome.debugger
-  if (message.type === 'SCAN_WITH_DEBUGGER') {
+  // Iniciar monitoreo con debugger (no recarga la página)
+  if (message.type === 'START_DEBUGGER') {
     const tabId = message.tabId;
 
     (async () => {
-      let videoUrl = null;
-      let audioUrl = null;
-      let requestListener = null;
-
       try {
-        // Attach debugger
-        await chrome.debugger.attach({ tabId }, '1.3');
+        // Verificar si ya está conectado
+        try {
+          await chrome.debugger.attach({ tabId }, '1.3');
+        } catch (e) {
+          if (!e.message.includes('Already attached')) {
+            throw e;
+          }
+        }
 
         // Enable Network domain
         await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
 
-        // Set up a listener for network requests
-        requestListener = (source, method, params) => {
-          if (source.tabId !== tabId) return;
-          if (method !== 'Network.requestWillBeSent') return;
-
-          const url = params.request.url;
-          if (!url.includes('videoplayback')) return;
-
-          const mediaType = detectMediaType(url);
-          const quality = getQualityFromItag(url);
-          const cleanedUrl = cleanVideoUrl(url);
-
-          const urlData = {
-            original: url,
-            clean: cleanedUrl,
-            quality: quality,
-            timestamp: Date.now()
-          };
-
-          if (mediaType === 'video') {
-            videoUrl = urlData;
-            console.log('[Debugger] Video detectado:', quality);
-          } else if (mediaType === 'audio') {
-            audioUrl = urlData;
-            console.log('[Debugger] Audio detectado:', quality);
-          }
-
-          // Guardar inmediatamente
-          if (!detectedUrls.has(tabId)) {
-            detectedUrls.set(tabId, { video: null, audio: null, timestamp: Date.now() });
-          }
-          const tabData = detectedUrls.get(tabId);
-          if (videoUrl) tabData.video = videoUrl;
-          if (audioUrl) tabData.audio = audioUrl;
-          tabData.timestamp = Date.now();
-          detectedUrls.set(tabId, tabData);
-
-          // Notificar al popup
-          chrome.runtime.sendMessage({
-            type: 'URL_DETECTED',
-            tabId: tabId,
-            data: tabData
-          }).catch(() => {});
-        };
-
-        chrome.debugger.onEvent.addListener(requestListener);
-
-        // Recargar la pagina para capturar las peticiones desde el inicio
-        await chrome.tabs.reload(tabId);
-
-        // Esperar hasta 15 segundos para capturar ambas URLs
-        const startTime = Date.now();
-        const timeout = 15000;
-
-        while (Date.now() - startTime < timeout) {
-          if (videoUrl && audioUrl) {
-            break; // Tenemos ambas!
-          }
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        // Cleanup
-        chrome.debugger.onEvent.removeListener(requestListener);
-        await chrome.debugger.detach({ tabId });
-
-        sendResponse({
-          success: true,
-          video: videoUrl,
-          audio: audioUrl
-        });
+        console.log('[Debugger] Conectado al tab', tabId);
+        sendResponse({ success: true, message: 'Debugger conectado. Reproduce el video.' });
       } catch (error) {
-        // Cleanup
-        if (requestListener) {
-          chrome.debugger.onEvent.removeListener(requestListener);
-        }
-        try {
-          await chrome.debugger.detach({ tabId });
-        } catch (e) {}
-
-        sendResponse({
-          success: false,
-          error: error.message || 'Error al conectar debugger'
-        });
+        sendResponse({ success: false, error: error.message });
       }
     })();
 
+    return true;
+  }
+
+  // Detener debugger
+  if (message.type === 'STOP_DEBUGGER') {
+    const tabId = message.tabId;
+    (async () => {
+      try {
+        await chrome.debugger.detach({ tabId });
+        sendResponse({ success: true });
+      } catch (e) {
+        sendResponse({ success: true }); // OK si ya estaba desconectado
+      }
+    })();
     return true;
   }
 
