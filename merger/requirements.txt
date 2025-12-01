@@ -1,0 +1,8 @@
+# Dependencias para Drive Video Merger
+# Instalar con: pip install -r requirements.txt
+
+# Monitoreo de archivos en tiempo real
+watchdog>=3.0.0
+
+# Notificaciones de Windows (opcional)
+win10toast>=0.9

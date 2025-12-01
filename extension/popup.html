@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drive Video Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Drive Video Downloader</h1>
+      <p class="subtitle">Descarga videos de Google Drive</p>
+    </header>
+
+    <main>
+      <!-- Estado actual -->
+      <section class="status-section">
+        <div class="status-card" id="videoStatus">
+          <div class="status-icon" id="videoIcon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>
+            </svg>
+          </div>
+          <div class="status-info">
+            <span class="status-label">Video</span>
+            <span class="status-value" id="videoQuality">No detectado</span>
+          </div>
+          <div class="status-indicator" id="videoIndicator"></div>
+        </div>
+
+        <div class="status-card" id="audioStatus">
+          <div class="status-icon" id="audioIcon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+          </div>
+          <div class="status-info">
+            <span class="status-label">Audio</span>
+            <span class="status-value" id="audioQuality">No detectado</span>
+          </div>
+          <div class="status-indicator" id="audioIndicator"></div>
+        </div>
+      </section>
+
+      <!-- Botones de accion -->
+      <section class="actions-section">
+        <button id="downloadBtn" class="btn btn-primary" disabled>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+          </svg>
+          <span>Descargar Video</span>
+        </button>
+
+        <button id="clearBtn" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+          <span>Limpiar</span>
+        </button>
+      </section>
+
+      <!-- Mensaje de estado -->
+      <section class="message-section" id="messageSection" style="display: none;">
+        <div class="message" id="message"></div>
+      </section>
+
+      <!-- Instrucciones -->
+      <section class="instructions-section" id="instructionsSection">
+        <h3>Instrucciones:</h3>
+        <ol>
+          <li>Abre un video en Google Drive</li>
+          <li>Reproduce el video por unos segundos</li>
+          <li>Espera a que se detecten video y audio</li>
+          <li>Haz clic en "Descargar Video"</li>
+        </ol>
+        <p class="note">El programa merger combinara automaticamente los archivos descargados.</p>
+      </section>
+
+      <!-- Configuracion -->
+      <section class="config-section">
+        <button id="configToggle" class="btn btn-text">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+          <span>Configuracion</span>
+        </button>
+
+        <div class="config-panel" id="configPanel" style="display: none;">
+          <div class="config-item">
+            <label for="downloadPath">Carpeta de descarga:</label>
+            <input type="text" id="downloadPath" placeholder="DriveVideos">
+          </div>
+          <button id="saveConfig" class="btn btn-small">Guardar</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>v1.0.0 - Necesitas tener el merger ejecutandose</p>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "watch_folder": "",
+  "output_folder": "",
+  "ffmpeg_path": "ffmpeg",
+  "delete_temp_files": true,
+  "notification_enabled": true,
+  "check_interval": 5,
+  "merge_timeout": 300
+}
