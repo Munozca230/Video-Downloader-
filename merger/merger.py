@@ -67,7 +67,10 @@ class Config:
             try:
                 with open(self.config_path, 'r', encoding='utf-8') as f:
                     user_config = json.load(f)
-                    defaults.update(user_config)
+                    # Solo actualizar valores que no esten vacios
+                    for key, value in user_config.items():
+                        if value != "" and value is not None:
+                            defaults[key] = value
             except Exception as e:
                 logger.error(f"Error cargando config: {e}")
 
