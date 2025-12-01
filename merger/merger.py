@@ -155,14 +155,16 @@ class HARProcessor:
         if 'videoplayback' not in url:
             return False
 
-        # Preferir URLs con cms_redirect (son las finales)
-        has_cms_redirect = 'cms_redirect=yes' in url
-
-        # Evitar URLs con ump=1 (son peticiones parciales)
+        # Rechazar solo URLs que claramente son peticiones parciales/chunked
+        # Estas tienen ump=1 Y srfvp=1 juntos (streaming chunks)
         has_ump = 'ump=1' in url
+        has_srfvp = 'srfvp=1' in url
 
-        # La URL es valida si tiene cms_redirect O si no tiene ump
-        return has_cms_redirect or not has_ump
+        # Solo rechazar si tiene AMBOS parametros de streaming
+        if has_ump and has_srfvp:
+            return False
+
+        return True
 
     @staticmethod
     def get_itag(url):
@@ -218,11 +220,13 @@ class HARProcessor:
             if 'videoplayback' not in url:
                 continue
 
-            if not cls.is_valid_url(url):
-                continue
-
             media_type = cls.get_media_type(url)
             if not media_type:
+                logger.debug(f"URL ignorada (tipo desconocido): itag={cls.get_itag(url)}")
+                continue
+
+            if not cls.is_valid_url(url):
+                logger.debug(f"URL ignorada (invalida): {media_type} itag={cls.get_itag(url)}")
                 continue
 
             itag = cls.get_itag(url)
@@ -243,14 +247,16 @@ class HARProcessor:
             else:
                 audio_urls.append(url_info)
 
+        logger.info(f"URLs encontradas: {len(video_urls)} video, {len(audio_urls)} audio")
+
         # Seleccionar la mejor URL para video y audio
         best_video = cls._select_best_url(video_urls)
         best_audio = cls._select_best_url(audio_urls)
 
         if best_video:
-            logger.info(f"Video encontrado: itag={best_video['itag']}, size={best_video['clen']//1024//1024}MB")
+            logger.info(f"Video seleccionado: itag={best_video['itag']}, size={best_video['clen']//1024//1024}MB, redirect={best_video['has_redirect']}")
         if best_audio:
-            logger.info(f"Audio encontrado: itag={best_audio['itag']}, size={best_audio['clen']//1024//1024}MB")
+            logger.info(f"Audio seleccionado: itag={best_audio['itag']}, size={best_audio['clen']//1024//1024}MB, redirect={best_audio['has_redirect']}")
 
         return best_video, best_audio
 
@@ -263,7 +269,9 @@ class HARProcessor:
         # Ordenar por: 1) tiene cms_redirect, 2) prioridad de calidad, 3) content length
         urls.sort(key=lambda x: (x['has_redirect'], x['priority'], x['clen']), reverse=True)
 
-        return urls[0]
+        best = urls[0]
+        logger.debug(f"Seleccionada URL con itag={best['itag']}, redirect={best['has_redirect']}, clen={best['clen']}")
+        return best
 
 
 class VideoMerger:
