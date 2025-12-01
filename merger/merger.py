@@ -135,6 +135,9 @@ class HARProcessor:
     @staticmethod
     def clean_url(url):
         """Limpiar URL removiendo parametros de rango y streaming"""
+        # Primero decodificar la URL por si esta codificada
+        url = unquote(url)
+
         parsed = urlparse(url)
         params = parse_qs(parsed.query, keep_blank_values=True)
 
@@ -143,9 +146,11 @@ class HARProcessor:
         for param in params_to_remove:
             params.pop(param, None)
 
-        # Reconstruir query string (sin listas)
+        # Reconstruir query string (sin listas, sin codificar de nuevo)
         clean_params = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in params.items()}
-        new_query = urlencode(clean_params, doseq=True)
+
+        # Usar quote_via=lambda x, *_: x para evitar doble codificación
+        new_query = urlencode(clean_params, doseq=True, safe='=&')
 
         return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
 
@@ -317,7 +322,7 @@ class VideoMerger:
         os.makedirs(config.output_folder, exist_ok=True)
 
     def download_url(self, url, output_path, description="archivo", cookies=None):
-        """Descargar un archivo desde URL"""
+        """Descargar un archivo desde URL usando requests"""
         if not REQUESTS_AVAILABLE:
             logger.error("requests no disponible, no se puede descargar")
             return False
@@ -357,6 +362,77 @@ class VideoMerger:
             logger.error(f"Error descargando {description}: {e}")
             return False
 
+    def download_via_browser(self, video_url, audio_url):
+        """Crear página HTML con links de descarga y abrirla en navegador"""
+        import webbrowser
+
+        # Crear una página HTML temporal con los links
+        timestamp = int(time.time())
+        html_path = os.path.join(self.config.watch_folder, f"download_{timestamp}.html")
+
+        html_content = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>Descargar Video</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; padding: 40px; background: #1a1a2e; color: white; }}
+        .container {{ max-width: 600px; margin: 0 auto; }}
+        h1 {{ color: #4ade80; }}
+        .btn {{ display: block; padding: 20px; margin: 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+               color: white; text-decoration: none; border-radius: 10px; text-align: center; font-size: 18px; }}
+        .btn:hover {{ transform: scale(1.02); }}
+        .note {{ color: #888; font-size: 14px; margin-top: 30px; }}
+        .step {{ background: #16213e; padding: 15px; border-radius: 8px; margin: 10px 0; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Descargar Video de Google Drive</h1>
+
+        <div class="step">
+            <strong>Paso 1:</strong> Haz clic en cada botón para descargar
+        </div>
+
+        <a href="{video_url}" class="btn" download="video.mp4">
+            📹 Descargar VIDEO
+        </a>
+
+        <a href="{audio_url}" class="btn" download="audio.mp4">
+            🔊 Descargar AUDIO
+        </a>
+
+        <div class="step">
+            <strong>Paso 2:</strong> Cuando terminen las descargas, renombra los archivos:
+            <ul>
+                <li>El video → <code>video_{timestamp}_temp.mp4</code></li>
+                <li>El audio → <code>audio_{timestamp}_temp.mp4</code></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>Paso 3:</strong> Mueve ambos archivos a:
+            <br><code>{self.config.watch_folder}</code>
+        </div>
+
+        <p class="note">
+            El merger combinará automáticamente los archivos cuando los detecte.
+            <br>Puedes cerrar esta página después de iniciar las descargas.
+        </p>
+    </div>
+</body>
+</html>'''
+
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+
+        logger.info(f"Página de descarga creada: {html_path}")
+        logger.info("Abriendo en navegador...")
+
+        # Abrir en navegador
+        webbrowser.open(f'file:///{html_path}')
+
+        return True
+
     def process_har_file(self, har_path):
         """Procesar un archivo HAR"""
         if har_path in self.processed_hars:
@@ -389,16 +465,46 @@ class VideoMerger:
         video_path = os.path.join(self.config.watch_folder, video_filename)
         audio_path = os.path.join(self.config.watch_folder, audio_filename)
 
-        # Descargar video y audio con cookies de autenticación
+        # Intentar descargar con requests primero
         video_ok = self.download_url(video_url, video_path, "video", cookies=cookies)
         audio_ok = self.download_url(audio_url, audio_path, "audio", cookies=cookies)
 
         if not video_ok or not audio_ok:
-            logger.error("Error en la descarga, abortando")
             # Limpiar archivos parciales
             for path in [video_path, audio_path]:
                 if os.path.exists(path):
                     os.remove(path)
+
+            # Fallback: abrir URLs en navegador para descarga manual
+            logger.warning("Descarga directa falló (necesita autenticación de Google)")
+            logger.info("")
+            logger.info("=" * 50)
+            logger.info("DESCARGA MANUAL REQUERIDA")
+            logger.info("=" * 50)
+            logger.info("")
+            logger.info("Las URLs requieren tu sesión de Google.")
+            logger.info("Abriendo URLs en el navegador...")
+            logger.info("")
+
+            import webbrowser
+
+            # Abrir ambas URLs - el navegador debería descargarlas
+            webbrowser.open(video_url)
+            time.sleep(2)
+            webbrowser.open(audio_url)
+
+            logger.info("Se abrieron 2 pestañas/descargas en tu navegador.")
+            logger.info("")
+            logger.info("Cuando terminen las descargas:")
+            logger.info(f"  1. Renombra el video a: video_XXXXX.mp4")
+            logger.info(f"  2. Renombra el audio a: audio_XXXXX.mp4")
+            logger.info(f"  3. Muévelos a: {self.config.watch_folder}")
+            logger.info("")
+            logger.info("El merger los combinará automáticamente.")
+            logger.info("=" * 50)
+
+            # Marcar HAR como procesado para no reprocesarlo
+            self.processed_hars.add(har_path)
             return
 
         # Marcar HAR como procesado
