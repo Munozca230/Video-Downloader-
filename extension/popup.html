@@ -43,74 +43,54 @@
         </div>
       </section>
 
-      <!-- Botones de accion -->
-      <section class="actions-section">
-        <button id="scanBtn" class="btn btn-scan">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          <span>Iniciar Monitoreo</span>
-        </button>
-
-        <button id="downloadBtn" class="btn btn-primary" disabled>
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-          </svg>
-          <span>Descargar</span>
-        </button>
-
-        <button id="clearBtn" class="btn btn-secondary">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
-          <span>Limpiar</span>
-        </button>
-      </section>
-
       <!-- Mensaje de estado -->
       <section class="message-section" id="messageSection" style="display: none;">
         <div class="message" id="message"></div>
       </section>
 
-      <!-- Instrucciones -->
-      <section class="instructions-section" id="instructionsSection">
-        <h3>Instrucciones:</h3>
-        <ol>
-          <li>Abre un video en Google Drive</li>
-          <li>Reproduce el video por unos segundos</li>
-          <li>Espera a que se detecten video y audio</li>
-          <li>Haz clic en "Descargar Video"</li>
-        </ol>
-        <p class="note">El programa merger combinara automaticamente los archivos descargados.</p>
-      </section>
+      <!-- Modo Manual (ahora es el modo principal) -->
+      <section class="manual-section" id="manualSection">
+        <div class="manual-panel">
+          <div class="manual-header">
+            <h3>Pegar URLs de Network</h3>
+            <button id="helpBtn" class="btn-help">?</button>
+          </div>
 
-      <!-- Modo Manual -->
-      <section class="manual-section">
-        <button id="manualToggle" class="btn btn-text">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-          </svg>
-          <span>Modo Manual (pegar URLs)</span>
-        </button>
-
-        <div class="manual-panel" id="manualPanel" style="display: none;">
-          <p class="manual-hint">Abre DevTools (F12) > Network > busca "videoplayback" > clic derecho > Copy URL</p>
-
-          <div class="manual-item">
-            <label for="manualVideoUrl">URL de Video (mime=video):</label>
-            <textarea id="manualVideoUrl" rows="2" placeholder="Pega aqui la URL del video..."></textarea>
+          <div class="manual-help" id="manualHelp" style="display: none;">
+            <ol>
+              <li>Presiona <strong>F12</strong> para abrir DevTools</li>
+              <li>Ve a la pestaña <strong>Network</strong></li>
+              <li>Reproduce el video</li>
+              <li>Escribe <strong>videoplayback</strong> en el filtro</li>
+              <li>Busca una peticion grande (video) y una pequeña (audio)</li>
+              <li>Clic derecho en cada una > <strong>Copy > Copy URL</strong></li>
+              <li>Pega cada URL abajo</li>
+            </ol>
           </div>
 
           <div class="manual-item">
-            <label for="manualAudioUrl">URL de Audio (mime=audio):</label>
-            <textarea id="manualAudioUrl" rows="2" placeholder="Pega aqui la URL del audio..."></textarea>
+            <label for="manualVideoUrl">
+              <span class="label-icon video-icon">V</span>
+              URL de Video:
+              <span class="auto-detect" id="videoDetect"></span>
+            </label>
+            <textarea id="manualVideoUrl" rows="2" placeholder="Pega la URL mas grande (video)..."></textarea>
           </div>
 
-          <button id="manualDownloadBtn" class="btn btn-primary">
+          <div class="manual-item">
+            <label for="manualAudioUrl">
+              <span class="label-icon audio-icon">A</span>
+              URL de Audio:
+              <span class="auto-detect" id="audioDetect"></span>
+            </label>
+            <textarea id="manualAudioUrl" rows="2" placeholder="Pega la URL mas pequeña (audio)..."></textarea>
+          </div>
+
+          <button id="manualDownloadBtn" class="btn btn-primary btn-full">
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
             </svg>
-            <span>Descargar con URLs manuales</span>
+            <span>Descargar y Combinar</span>
           </button>
         </div>
       </section>

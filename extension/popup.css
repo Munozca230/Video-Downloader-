@@ -268,25 +268,64 @@ header .subtitle {
   font-style: italic;
 }
 
-/* Manual Mode */
+/* Manual Mode - Now the main mode */
 .manual-section {
-  border-top: 1px solid #333;
-  padding-top: 12px;
   margin-bottom: 12px;
 }
 
 .manual-panel {
-  margin-top: 12px;
   padding: 12px;
   background: #16213e;
   border-radius: 8px;
 }
 
-.manual-hint {
-  font-size: 11px;
-  color: #888;
+.manual-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 12px;
-  line-height: 1.5;
+}
+
+.manual-header h3 {
+  font-size: 14px;
+  color: #fff;
+  margin: 0;
+}
+
+.btn-help {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #667eea;
+  background: transparent;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-help:hover {
+  background: #667eea;
+  color: white;
+}
+
+.manual-help {
+  background: #0f3460;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.manual-help ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: #aaa;
+  line-height: 1.8;
+}
+
+.manual-help strong {
+  color: #fff;
 }
 
 .manual-item {
@@ -294,10 +333,50 @@ header .subtitle {
 }
 
 .manual-item label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   color: #888;
   margin-bottom: 6px;
+}
+
+.label-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.video-icon {
+  background: #7c3aed;
+  color: white;
+}
+
+.audio-icon {
+  background: #0ea5e9;
+  color: white;
+}
+
+.auto-detect {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.auto-detect.valid {
+  background: #166534;
+  color: #4ade80;
+}
+
+.auto-detect.invalid {
+  background: #7f1d1d;
+  color: #fca5a5;
 }
 
 .manual-item textarea {
@@ -310,6 +389,7 @@ header .subtitle {
   font-size: 11px;
   font-family: monospace;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .manual-item textarea:focus {
@@ -317,7 +397,7 @@ header .subtitle {
   border-color: #667eea;
 }
 
-.manual-panel .btn-primary {
+.btn-full {
   width: 100%;
   margin-top: 8px;
 }

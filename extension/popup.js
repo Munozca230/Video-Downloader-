@@ -5,21 +5,19 @@ const videoStatus = document.getElementById('videoStatus');
 const audioStatus = document.getElementById('audioStatus');
 const videoQuality = document.getElementById('videoQuality');
 const audioQuality = document.getElementById('audioQuality');
-const scanBtn = document.getElementById('scanBtn');
-const downloadBtn = document.getElementById('downloadBtn');
-const clearBtn = document.getElementById('clearBtn');
 const messageSection = document.getElementById('messageSection');
 const message = document.getElementById('message');
-const instructionsSection = document.getElementById('instructionsSection');
 const configToggle = document.getElementById('configToggle');
 const configPanel = document.getElementById('configPanel');
 const downloadPath = document.getElementById('downloadPath');
 const saveConfigBtn = document.getElementById('saveConfig');
-const manualToggle = document.getElementById('manualToggle');
-const manualPanel = document.getElementById('manualPanel');
 const manualVideoUrl = document.getElementById('manualVideoUrl');
 const manualAudioUrl = document.getElementById('manualAudioUrl');
 const manualDownloadBtn = document.getElementById('manualDownloadBtn');
+const helpBtn = document.getElementById('helpBtn');
+const manualHelp = document.getElementById('manualHelp');
+const videoDetect = document.getElementById('videoDetect');
+const audioDetect = document.getElementById('audioDetect');
 
 let currentTabId = null;
 
@@ -37,82 +35,117 @@ async function init() {
 
   if (!isGoogleDrive) {
     showMessage('Abre un video en Google Drive para usar esta extension', 'info');
-    downloadBtn.disabled = true;
+    manualDownloadBtn.disabled = true;
     return;
   }
 
   // Cargar configuración
   await loadConfig();
 
-  // Verificar si el debugger ya está activo
-  try {
-    const debuggerStatus = await chrome.runtime.sendMessage({
-      type: 'CHECK_DEBUGGER',
-      tabId: currentTabId
-    });
-    if (debuggerStatus.active) {
-      debuggerActive = true;
-      scanBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg><span>Detener</span>';
-      scanBtn.classList.add('active');
-    }
-  } catch (e) {}
-
-  // Obtener estado actual
-  await updateStatus();
-
-  // Escuchar actualizaciones en tiempo real
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === 'URL_DETECTED' && msg.tabId === currentTabId) {
-      updateStatusFromData(msg.data);
-    }
-  });
+  // Agregar validación en tiempo real
+  manualVideoUrl.addEventListener('input', validateUrls);
+  manualAudioUrl.addEventListener('input', validateUrls);
 }
 
-// Actualizar estado desde el background
-async function updateStatus() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'GET_STATUS',
-      tabId: currentTabId
-    });
+// Detectar tipo de media de una URL
+function detectMediaType(url) {
+  if (!url.includes('videoplayback')) return 'invalid';
 
-    if (response.success) {
-      updateStatusFromData(response.data);
-    }
-  } catch (error) {
-    console.error('Error getting status:', error);
+  if (url.includes('mime=video')) return 'video';
+  if (url.includes('mime=audio')) return 'audio';
+
+  // Detectar por itag
+  const itagMatch = url.match(/itag[=/](\d+)/);
+  if (itagMatch) {
+    const itag = parseInt(itagMatch[1]);
+    const audioItags = [140, 141, 171, 249, 250, 251, 139, 172];
+    if (audioItags.includes(itag)) return 'audio';
+    return 'video';
   }
+
+  return 'unknown';
 }
 
-// Actualizar UI con los datos
-function updateStatusFromData(data) {
-  // Video
-  if (data.video) {
-    videoStatus.classList.add('detected');
-    videoQuality.textContent = data.video.quality || 'Detectado';
+// Obtener calidad de la URL
+function getQuality(url) {
+  const itagMatch = url.match(/itag[=/](\d+)/);
+  if (!itagMatch) return '';
+
+  const itag = parseInt(itagMatch[1]);
+  const map = {
+    137: '1080p', 136: '720p', 135: '480p', 134: '360p', 133: '240p', 160: '144p',
+    140: '128kbps', 141: '256kbps', 251: '160kbps', 250: '70kbps', 249: '50kbps'
+  };
+  return map[itag] || '';
+}
+
+// Validar URLs y actualizar UI
+function validateUrls() {
+  const videoUrl = manualVideoUrl.value.trim();
+  const audioUrl = manualAudioUrl.value.trim();
+
+  // Validar video
+  if (videoUrl) {
+    const videoType = detectMediaType(videoUrl);
+    const videoQ = getQuality(videoUrl);
+
+    if (videoType === 'video') {
+      videoDetect.textContent = videoQ || 'OK';
+      videoDetect.className = 'auto-detect valid';
+      videoStatus.classList.add('detected');
+      videoQuality.textContent = videoQ || 'Detectado';
+    } else if (videoType === 'audio') {
+      videoDetect.textContent = 'Es audio!';
+      videoDetect.className = 'auto-detect invalid';
+      videoStatus.classList.remove('detected');
+    } else if (videoType === 'invalid') {
+      videoDetect.textContent = 'No valida';
+      videoDetect.className = 'auto-detect invalid';
+      videoStatus.classList.remove('detected');
+    } else {
+      videoDetect.textContent = videoQ || '?';
+      videoDetect.className = 'auto-detect valid';
+    }
   } else {
+    videoDetect.textContent = '';
+    videoDetect.className = 'auto-detect';
     videoStatus.classList.remove('detected');
     videoQuality.textContent = 'No detectado';
   }
 
-  // Audio
-  if (data.audio) {
-    audioStatus.classList.add('detected');
-    audioQuality.textContent = data.audio.quality || 'Detectado';
+  // Validar audio
+  if (audioUrl) {
+    const audioType = detectMediaType(audioUrl);
+    const audioQ = getQuality(audioUrl);
+
+    if (audioType === 'audio') {
+      audioDetect.textContent = audioQ || 'OK';
+      audioDetect.className = 'auto-detect valid';
+      audioStatus.classList.add('detected');
+      audioQuality.textContent = audioQ || 'Detectado';
+    } else if (audioType === 'video') {
+      audioDetect.textContent = 'Es video!';
+      audioDetect.className = 'auto-detect invalid';
+      audioStatus.classList.remove('detected');
+    } else if (audioType === 'invalid') {
+      audioDetect.textContent = 'No valida';
+      audioDetect.className = 'auto-detect invalid';
+      audioStatus.classList.remove('detected');
+    } else {
+      audioDetect.textContent = audioQ || '?';
+      audioDetect.className = 'auto-detect valid';
+    }
   } else {
+    audioDetect.textContent = '';
+    audioDetect.className = 'auto-detect';
     audioStatus.classList.remove('detected');
     audioQuality.textContent = 'No detectado';
   }
 
-  // Habilitar/deshabilitar boton de descarga
-  downloadBtn.disabled = !(data.video && data.audio);
-
-  // Ocultar instrucciones si ya detectamos algo
-  if (data.video || data.audio) {
-    instructionsSection.style.display = 'none';
-  } else {
-    instructionsSection.style.display = 'block';
-  }
+  // Habilitar/deshabilitar botón
+  const videoValid = videoUrl && detectMediaType(videoUrl) !== 'invalid';
+  const audioValid = audioUrl && detectMediaType(audioUrl) !== 'invalid';
+  manualDownloadBtn.disabled = !(videoValid && audioValid);
 }
 
 // Mostrar mensaje
@@ -121,7 +154,6 @@ function showMessage(text, type = 'info') {
   message.className = 'message ' + type;
   messageSection.style.display = 'block';
 
-  // Auto-ocultar despues de 5 segundos (excepto loading)
   if (type !== 'loading') {
     setTimeout(() => {
       messageSection.style.display = 'none';
@@ -129,52 +161,48 @@ function showMessage(text, type = 'info') {
   }
 }
 
-// Descargar video
-async function download() {
-  downloadBtn.disabled = true;
-  showMessage('Iniciando descarga...', 'loading');
+// Limpiar URL
+function cleanUrl(url) {
+  let clean = url.trim();
+  clean = clean.replace(/&range=[^&]*/g, '');
+  clean = clean.replace(/&rn=[^&]*/g, '');
+  clean = clean.replace(/&rbuf=[^&]*/g, '');
+  return clean;
+}
+
+// Descargar con URLs manuales
+async function manualDownload() {
+  const videoUrl = manualVideoUrl.value.trim();
+  const audioUrl = manualAudioUrl.value.trim();
+
+  if (!videoUrl || !audioUrl) {
+    showMessage('Pega ambas URLs (video y audio)', 'error');
+    return;
+  }
+
+  manualDownloadBtn.disabled = true;
+  showMessage('Descargando...', 'loading');
 
   try {
     const response = await chrome.runtime.sendMessage({
-      type: 'DOWNLOAD',
-      tabId: currentTabId
+      type: 'MANUAL_DOWNLOAD',
+      videoUrl: cleanUrl(videoUrl),
+      audioUrl: cleanUrl(audioUrl)
     });
 
     if (response.success) {
-      showMessage(
-        `Descarga iniciada! Los archivos se combinaran automaticamente.`,
-        'success'
-      );
+      showMessage('Descarga iniciada! El merger combinara los archivos.', 'success');
+      manualVideoUrl.value = '';
+      manualAudioUrl.value = '';
+      validateUrls();
     } else {
       showMessage('Error: ' + response.error, 'error');
-      downloadBtn.disabled = false;
     }
   } catch (error) {
-    showMessage('Error al descargar: ' + error.message, 'error');
-    downloadBtn.disabled = false;
+    showMessage('Error: ' + error.message, 'error');
   }
-}
 
-// Limpiar datos
-async function clearData() {
-  try {
-    await chrome.runtime.sendMessage({
-      type: 'CLEAR_DATA',
-      tabId: currentTabId
-    });
-
-    videoStatus.classList.remove('detected');
-    audioStatus.classList.remove('detected');
-    videoQuality.textContent = 'No detectado';
-    audioQuality.textContent = 'No detectado';
-    downloadBtn.disabled = true;
-    instructionsSection.style.display = 'block';
-    messageSection.style.display = 'none';
-
-    showMessage('Datos limpiados. Reproduce el video nuevamente.', 'info');
-  } catch (error) {
-    showMessage('Error al limpiar: ' + error.message, 'error');
-  }
+  manualDownloadBtn.disabled = false;
 }
 
 // Cargar configuracion
@@ -206,134 +234,19 @@ async function saveConfig() {
 
 // Toggle panel de configuracion
 function toggleConfig() {
-  if (configPanel.style.display === 'none') {
-    configPanel.style.display = 'block';
-  } else {
-    configPanel.style.display = 'none';
-  }
+  configPanel.style.display = configPanel.style.display === 'none' ? 'block' : 'none';
 }
 
-// Toggle panel manual
-function toggleManual() {
-  if (manualPanel.style.display === 'none') {
-    manualPanel.style.display = 'block';
-  } else {
-    manualPanel.style.display = 'none';
-  }
-}
-
-// Limpiar URL (remover range y parametros relacionados)
-function cleanUrl(url) {
-  let clean = url.trim();
-  clean = clean.replace(/&range=[^&]*/g, '');
-  clean = clean.replace(/&rn=[^&]*/g, '');
-  clean = clean.replace(/&rbuf=[^&]*/g, '');
-  return clean;
-}
-
-// Descargar con URLs manuales
-async function manualDownload() {
-  const videoUrl = manualVideoUrl.value.trim();
-  const audioUrl = manualAudioUrl.value.trim();
-
-  if (!videoUrl) {
-    showMessage('Falta la URL del video', 'error');
-    return;
-  }
-
-  if (!audioUrl) {
-    showMessage('Falta la URL del audio', 'error');
-    return;
-  }
-
-  if (!videoUrl.includes('videoplayback')) {
-    showMessage('La URL del video no parece valida', 'error');
-    return;
-  }
-
-  if (!audioUrl.includes('videoplayback')) {
-    showMessage('La URL del audio no parece valida', 'error');
-    return;
-  }
-
-  manualDownloadBtn.disabled = true;
-  showMessage('Iniciando descarga manual...', 'loading');
-
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'MANUAL_DOWNLOAD',
-      videoUrl: cleanUrl(videoUrl),
-      audioUrl: cleanUrl(audioUrl)
-    });
-
-    if (response.success) {
-      showMessage('Descarga iniciada! Los archivos se combinaran automaticamente.', 'success');
-      manualVideoUrl.value = '';
-      manualAudioUrl.value = '';
-    } else {
-      showMessage('Error: ' + response.error, 'error');
-    }
-  } catch (error) {
-    showMessage('Error al descargar: ' + error.message, 'error');
-  }
-
-  manualDownloadBtn.disabled = false;
-}
-
-// Estado del debugger
-let debuggerActive = false;
-
-// Iniciar/detener monitoreo con debugger
-async function toggleDebugger() {
-  if (debuggerActive) {
-    // Detener
-    try {
-      await chrome.runtime.sendMessage({ type: 'STOP_DEBUGGER', tabId: currentTabId });
-    } catch (e) {}
-    debuggerActive = false;
-    scanBtn.textContent = 'Iniciar Monitoreo';
-    scanBtn.classList.remove('active');
-    showMessage('Monitoreo detenido', 'info');
-  } else {
-    // Iniciar
-    scanBtn.disabled = true;
-    showMessage('Conectando...', 'loading');
-
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: 'START_DEBUGGER',
-        tabId: currentTabId
-      });
-
-      if (response.success) {
-        debuggerActive = true;
-        scanBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg><span>Detener</span>';
-        scanBtn.classList.add('active');
-        showMessage('Monitoreo activo! Reproduce el video ahora.', 'success');
-      } else {
-        showMessage('Error: ' + response.error, 'error');
-      }
-    } catch (error) {
-      showMessage('Error: ' + error.message, 'error');
-    }
-
-    scanBtn.disabled = false;
-  }
-}
-
-// Alias para compatibilidad
-async function scanForUrls() {
-  await toggleDebugger();
+// Toggle ayuda
+function toggleHelp() {
+  manualHelp.style.display = manualHelp.style.display === 'none' ? 'block' : 'none';
 }
 
 // Event listeners
-scanBtn.addEventListener('click', scanForUrls);
-downloadBtn.addEventListener('click', download);
-clearBtn.addEventListener('click', clearData);
+manualDownloadBtn.addEventListener('click', manualDownload);
 configToggle.addEventListener('click', toggleConfig);
 saveConfigBtn.addEventListener('click', saveConfig);
-manualToggle.addEventListener('click', toggleManual);
-manualDownloadBtn.addEventListener('click', manualDownload);
+helpBtn.addEventListener('click', toggleHelp);
 
 // Inicializar
 init();
