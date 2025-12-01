@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, unquote
 
 # Intentar importar requests para descargas
 try:
@@ -214,15 +214,25 @@ class HARProcessor:
         video_urls = []
         audio_urls = []
 
+        videoplayback_count = 0
         for entry in entries:
             url = entry.get('request', {}).get('url', '')
 
             if 'videoplayback' not in url:
                 continue
 
+            videoplayback_count += 1
+            # Decodificar URL por si tiene caracteres escapados
+            url = unquote(url)
+
             media_type = cls.get_media_type(url)
             if not media_type:
-                logger.debug(f"URL ignorada (tipo desconocido): itag={cls.get_itag(url)}")
+                itag = cls.get_itag(url)
+                logger.warning(f"URL videoplayback ignorada (tipo desconocido): itag={itag}, mime detectado: {'mime=' in url}")
+                # Mostrar parte de la URL para debug
+                if 'mime=' in url:
+                    mime_start = url.find('mime=')
+                    logger.warning(f"  mime param: {url[mime_start:mime_start+30]}")
                 continue
 
             if not cls.is_valid_url(url):
@@ -247,7 +257,8 @@ class HARProcessor:
             else:
                 audio_urls.append(url_info)
 
-        logger.info(f"URLs encontradas: {len(video_urls)} video, {len(audio_urls)} audio")
+        logger.info(f"Total videoplayback URLs en HAR: {videoplayback_count}")
+        logger.info(f"URLs validas encontradas: {len(video_urls)} video, {len(audio_urls)} audio")
 
         # Seleccionar la mejor URL para video y audio
         best_video = cls._select_best_url(video_urls)
