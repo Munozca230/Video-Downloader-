@@ -320,6 +320,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Almacenar URLs encontradas por el scan
+  if (message.type === 'STORE_URLS') {
+    const tabId = message.tabId;
+
+    if (!detectedUrls.has(tabId)) {
+      detectedUrls.set(tabId, { video: null, audio: null, timestamp: Date.now() });
+    }
+
+    const tabData = detectedUrls.get(tabId);
+
+    if (message.video) {
+      tabData.video = message.video;
+    }
+    if (message.audio) {
+      tabData.audio = message.audio;
+    }
+    tabData.timestamp = Date.now();
+
+    detectedUrls.set(tabId, tabData);
+    sendResponse({ success: true });
+    return true;
+  }
+
   // Descarga manual con URLs proporcionadas
   if (message.type === 'MANUAL_DOWNLOAD') {
     (async () => {

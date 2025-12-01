@@ -140,6 +140,15 @@ header .subtitle {
   height: 18px;
 }
 
+.btn-scan {
+  background: #0ea5e9;
+  color: white;
+}
+
+.btn-scan:hover {
+  background: #0284c7;
+}
+
 .btn-primary {
   flex: 1;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

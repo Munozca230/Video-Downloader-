@@ -5,6 +5,7 @@ const videoStatus = document.getElementById('videoStatus');
 const audioStatus = document.getElementById('audioStatus');
 const videoQuality = document.getElementById('videoQuality');
 const audioQuality = document.getElementById('audioQuality');
+const scanBtn = document.getElementById('scanBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const clearBtn = document.getElementById('clearBtn');
 const messageSection = document.getElementById('messageSection');
@@ -266,7 +267,113 @@ async function manualDownload() {
   manualDownloadBtn.disabled = false;
 }
 
+// Escanear URLs en la pagina
+async function scanForUrls() {
+  scanBtn.disabled = true;
+  showMessage('Escaneando URLs...', 'loading');
+
+  try {
+    // Inyectar script para buscar URLs en performance entries
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: currentTabId, allFrames: true },
+      func: () => {
+        const urls = { video: null, audio: null };
+        const processedUrls = new Set();
+
+        // Funcion para detectar tipo
+        function detectType(url) {
+          if (url.includes('mime=video')) return 'video';
+          if (url.includes('mime=audio')) return 'audio';
+          const itagMatch = url.match(/itag[=/](\d+)/);
+          if (itagMatch) {
+            const itag = parseInt(itagMatch[1]);
+            const audioItags = [140, 141, 171, 249, 250, 251, 139, 172];
+            if (audioItags.includes(itag)) return 'audio';
+            return 'video';
+          }
+          return 'unknown';
+        }
+
+        // Funcion para limpiar URL
+        function cleanUrl(url) {
+          return url.replace(/&range=[^&]*/g, '').replace(/&rn=[^&]*/g, '').replace(/&rbuf=[^&]*/g, '');
+        }
+
+        // Funcion para obtener calidad
+        function getQuality(url) {
+          const itagMatch = url.match(/itag[=/](\d+)/);
+          if (!itagMatch) return 'detected';
+          const itag = parseInt(itagMatch[1]);
+          const map = {137:'1080p',136:'720p',135:'480p',134:'360p',140:'128kbps',251:'160kbps'};
+          return map[itag] || 'detected';
+        }
+
+        // Buscar en performance entries
+        if (performance && performance.getEntriesByType) {
+          const resources = performance.getEntriesByType('resource');
+          for (const entry of resources) {
+            if (entry.name && entry.name.includes('videoplayback')) {
+              const type = detectType(entry.name);
+              if (type !== 'unknown' && !processedUrls.has(type)) {
+                processedUrls.add(type);
+                urls[type] = {
+                  original: entry.name,
+                  clean: cleanUrl(entry.name),
+                  quality: getQuality(entry.name),
+                  timestamp: Date.now()
+                };
+              }
+            }
+          }
+        }
+
+        return urls;
+      }
+    });
+
+    // Combinar resultados de todos los frames
+    let foundVideo = null;
+    let foundAudio = null;
+
+    for (const result of results) {
+      if (result.result) {
+        if (result.result.video && !foundVideo) {
+          foundVideo = result.result.video;
+        }
+        if (result.result.audio && !foundAudio) {
+          foundAudio = result.result.audio;
+        }
+      }
+    }
+
+    if (foundVideo || foundAudio) {
+      // Enviar al background para almacenar
+      await chrome.runtime.sendMessage({
+        type: 'STORE_URLS',
+        tabId: currentTabId,
+        video: foundVideo,
+        audio: foundAudio
+      });
+
+      await updateStatus();
+
+      const found = [];
+      if (foundVideo) found.push('video');
+      if (foundAudio) found.push('audio');
+      showMessage(`Encontrado: ${found.join(' y ')}`, 'success');
+    } else {
+      showMessage('No se encontraron URLs. Reproduce el video primero.', 'error');
+    }
+  } catch (error) {
+    console.error('Scan error:', error);
+    showMessage('Error al escanear: ' + error.message, 'error');
+  }
+
+  scanBtn.disabled = false;
+}
+
 // Event listeners
+scanBtn.addEventListener('click', scanForUrls);
 downloadBtn.addEventListener('click', download);
 clearBtn.addEventListener('click', clearData);
 configToggle.addEventListener('click', toggleConfig);
