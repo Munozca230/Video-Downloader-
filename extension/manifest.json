@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Drive Video Downloader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Descarga videos de Google Drive que no permiten descarga directa",
   "permissions": [
     "webRequest",
     "storage",
     "downloads",
     "activeTab",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "*://*.google.com/*",
@@ -18,6 +19,20 @@
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["*://drive.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["*://drive.google.com/*"]
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

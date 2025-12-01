@@ -242,8 +242,44 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000); // Cada 5 minutos
 
-// Manejar mensajes del popup
+// Manejar mensajes del popup y content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Mensaje del content script con URL detectada
+  if (message.type === 'URL_FROM_PAGE') {
+    const tabId = sender.tab ? sender.tab.id : -1;
+    if (tabId < 0) {
+      sendResponse({ success: false });
+      return true;
+    }
+
+    // Inicializar storage para esta pestaña si no existe
+    if (!detectedUrls.has(tabId)) {
+      detectedUrls.set(tabId, { video: null, audio: null, timestamp: Date.now() });
+    }
+
+    const tabData = detectedUrls.get(tabId);
+    const mediaType = message.mediaType;
+    const urlData = message.data;
+
+    if (mediaType === 'video' || mediaType === 'audio') {
+      tabData[mediaType] = urlData;
+      tabData.timestamp = Date.now();
+      detectedUrls.set(tabId, tabData);
+
+      console.log(`[Drive Downloader] ${mediaType} detectado:`, urlData.quality);
+
+      // Notificar al popup si está abierto
+      chrome.runtime.sendMessage({
+        type: 'URL_DETECTED',
+        tabId: tabId,
+        data: tabData
+      }).catch(() => {});
+    }
+
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (message.type === 'GET_STATUS') {
     const tabId = message.tabId;
     const tabData = detectedUrls.get(tabId) || { video: null, audio: null };
