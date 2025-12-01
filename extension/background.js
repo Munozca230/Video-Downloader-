@@ -320,6 +320,111 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Escanear usando chrome.debugger
+  if (message.type === 'SCAN_WITH_DEBUGGER') {
+    const tabId = message.tabId;
+
+    (async () => {
+      let videoUrl = null;
+      let audioUrl = null;
+      let requestListener = null;
+
+      try {
+        // Attach debugger
+        await chrome.debugger.attach({ tabId }, '1.3');
+
+        // Enable Network domain
+        await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
+
+        // Set up a listener for network requests
+        requestListener = (source, method, params) => {
+          if (source.tabId !== tabId) return;
+          if (method !== 'Network.requestWillBeSent') return;
+
+          const url = params.request.url;
+          if (!url.includes('videoplayback')) return;
+
+          const mediaType = detectMediaType(url);
+          const quality = getQualityFromItag(url);
+          const cleanedUrl = cleanVideoUrl(url);
+
+          const urlData = {
+            original: url,
+            clean: cleanedUrl,
+            quality: quality,
+            timestamp: Date.now()
+          };
+
+          if (mediaType === 'video') {
+            videoUrl = urlData;
+            console.log('[Debugger] Video detectado:', quality);
+          } else if (mediaType === 'audio') {
+            audioUrl = urlData;
+            console.log('[Debugger] Audio detectado:', quality);
+          }
+
+          // Guardar inmediatamente
+          if (!detectedUrls.has(tabId)) {
+            detectedUrls.set(tabId, { video: null, audio: null, timestamp: Date.now() });
+          }
+          const tabData = detectedUrls.get(tabId);
+          if (videoUrl) tabData.video = videoUrl;
+          if (audioUrl) tabData.audio = audioUrl;
+          tabData.timestamp = Date.now();
+          detectedUrls.set(tabId, tabData);
+
+          // Notificar al popup
+          chrome.runtime.sendMessage({
+            type: 'URL_DETECTED',
+            tabId: tabId,
+            data: tabData
+          }).catch(() => {});
+        };
+
+        chrome.debugger.onEvent.addListener(requestListener);
+
+        // Recargar la pagina para capturar las peticiones desde el inicio
+        await chrome.tabs.reload(tabId);
+
+        // Esperar hasta 15 segundos para capturar ambas URLs
+        const startTime = Date.now();
+        const timeout = 15000;
+
+        while (Date.now() - startTime < timeout) {
+          if (videoUrl && audioUrl) {
+            break; // Tenemos ambas!
+          }
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // Cleanup
+        chrome.debugger.onEvent.removeListener(requestListener);
+        await chrome.debugger.detach({ tabId });
+
+        sendResponse({
+          success: true,
+          video: videoUrl,
+          audio: audioUrl
+        });
+      } catch (error) {
+        // Cleanup
+        if (requestListener) {
+          chrome.debugger.onEvent.removeListener(requestListener);
+        }
+        try {
+          await chrome.debugger.detach({ tabId });
+        } catch (e) {}
+
+        sendResponse({
+          success: false,
+          error: error.message || 'Error al conectar debugger'
+        });
+      }
+    })();
+
+    return true;
+  }
+
   // Almacenar URLs encontradas por el scan
   if (message.type === 'STORE_URLS') {
     const tabId = message.tabId;
